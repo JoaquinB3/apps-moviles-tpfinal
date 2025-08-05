@@ -5,11 +5,6 @@ import Grid from '../components/Grid';
 import Keyboard from '../components/Keyboard';
 import palabrasArgentinas from '../constants/palabras-argentinas.json';
 
-interface GameScreenProps {
-  onHome: () => void;
-  onRestart: () => void;
-}
-
 type LetterState = 'default' | 'correct' | 'present' | 'absent';
 
 function getEmptyStates(): LetterState[][] {
@@ -27,7 +22,7 @@ function getRandomWord() {
   return palabrasArgentinas[idx].toUpperCase();
 }
 
-const GameScreen: React.FC<GameScreenProps> = ({ onHome, onRestart }) => {
+const GameScreen: React.FC = () => {
   const [guesses, setGuesses] = useState<string[]>([]);
   const [current, setCurrent] = useState<string>('');
   const [states, setStates] = useState<LetterState[][]>(getEmptyStates());
@@ -59,7 +54,6 @@ const GameScreen: React.FC<GameScreenProps> = ({ onHome, onRestart }) => {
       useNativeDriver: true,
     }).start(() => {
       setShowToast(false);
-      if (onHome) onHome();
     });
   };
 
@@ -146,7 +140,6 @@ const GameScreen: React.FC<GameScreenProps> = ({ onHome, onRestart }) => {
     setAnimateRow(undefined);
     setShowToast(false);
     setSolution(newWord);
-    if (onRestart) onRestart();
   }
 
   return (
@@ -177,10 +170,6 @@ const GameScreen: React.FC<GameScreenProps> = ({ onHome, onRestart }) => {
           </View>
         </View>
       </View>
-      {/* Icono de casita centrado debajo del título */}
-      <TouchableOpacity style={styles.homeIconCentered} onPress={onHome} accessibilityLabel="Ir al inicio">
-        <Ionicons name="home" size={32} color="#003366" />
-      </TouchableOpacity>
       <Animated.View style={{ transform: [{ translateX: shakeAnim }] }}>
         <Grid 
           guesses={[...guesses, current, ...Array.from({ length: 5 - guesses.length }).map(() => '')]} 
@@ -354,4 +343,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default GameScreen; 
+export default GameScreen;
