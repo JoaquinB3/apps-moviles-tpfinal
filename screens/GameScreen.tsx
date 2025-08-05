@@ -1,9 +1,13 @@
+import { useAuth } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Grid from '../components/Grid';
 import Keyboard from '../components/Keyboard';
+import { StatsDisplay } from '../components/StatsDisplay';
 import palabrasArgentinas from '../constants/palabras-argentinas.json';
+import { useScore } from '../context/ScoreContext';
 
 type LetterState = 'default' | 'correct' | 'present' | 'absent';
 
@@ -23,18 +27,24 @@ function getRandomWord() {
 }
 
 const GameScreen: React.FC = () => {
+  const { addGameResult } = useScore();
+  const { signOut } = useAuth();
   const [guesses, setGuesses] = useState<string[]>([]);
   const [current, setCurrent] = useState<string>('');
   const [states, setStates] = useState<LetterState[][]>(getEmptyStates());
   const [letterStates, setLetterStates] = useState<{ [key: string]: LetterState }>(getInitialLetterStates());
   const [status, setStatus] = useState<'playing' | 'won' | 'lost'>('playing');
   const [message, setMessage] = useState<string>('');
+  const [showStats, setShowStats] = useState(false);
   const shakeAnim = useRef(new Animated.Value(0)).current;
-  const [titleWidth, setTitleWidth] = useState<number>(180);
   const [animateRow, setAnimateRow] = useState<number | undefined>(undefined);
   const [showToast, setShowToast] = useState(false);
   const toastAnim = useRef(new Animated.Value(100)).current; // 100px abajo
   const [solution, setSolution] = useState<string>(getRandomWord());
+
+  const handleSignOut = () => {
+    signOut();
+  };
 
   useEffect(() => {
     if (status !== 'playing' && message) {
@@ -45,7 +55,7 @@ const GameScreen: React.FC = () => {
         useNativeDriver: true,
       }).start();
     }
-  }, [status, message]);
+  }, [status, message, toastAnim]);
 
   const handleCloseToast = () => {
     Animated.timing(toastAnim, {
@@ -106,9 +116,13 @@ const GameScreen: React.FC = () => {
         if (guess === solutionWord) {
           setStatus('won');
           setMessage('¡Ganaste!');
+          // Record the win in user's score
+          addGameResult(true, guesses.length + 1);
         } else if (guesses.length + 1 === 6) {
           setStatus('lost');
           setMessage(`Perdiste. La palabra era ${solution}`);
+          // Record the loss in user's score
+          addGameResult(false, 6);
         }
       }, 1200); // Esperar 1.2 segundos para que termine la animación (5 casillas * 200ms + margen)
       
@@ -144,29 +158,41 @@ const GameScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      {/* Header con título */}
+      <StatusBar style="dark" backgroundColor="#f8f9fa" />
+      {/* Header minimalista solo con iconos */}
       <View style={styles.header}>
-        <View style={styles.titleFlagContainer}>
-          <Text
-            style={styles.titleFlag}
-            onLayout={e => setTitleWidth(e.nativeEvent.layout.width)}
-          >
-            Wordle Argentino
-          </Text>
-          <View style={[styles.flagRow, { width: titleWidth }]}> 
-            {/* Barra izquierda */}
-            <View style={styles.flagBarWrapper}>
-              <View style={styles.flagBarCeleste} />
-              <View style={styles.flagBarBlanca} />
-            </View>
-            <View style={styles.flagSunWrapper}>
-              <Ionicons name="sunny" size={28} color="#ffd500" />
-            </View>
-            {/* Barra derecha */}
-            <View style={styles.flagBarWrapper}>
-              <View style={styles.flagBarBlanca} />
-              <View style={styles.flagBarCeleste} />
-            </View>
+        {/* Botón de Sign Out - izquierda */}
+        <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
+          <Ionicons name="log-out-outline" size={24} color="#003366" />
+        </TouchableOpacity>
+        
+        {/* Espaciador para centrar visual */}
+        <View style={styles.headerSpacer} />
+        
+        {/* Botón de estadísticas - derecha */}
+        <TouchableOpacity 
+          style={styles.statsButton} 
+          onPress={() => setShowStats(true)}
+          accessibilityLabel="Ver estadísticas"
+        >
+          <Ionicons name="stats-chart" size={24} color="#003366" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Título grande del juego */}
+      <View style={styles.gameTitle}>
+        <Text style={styles.titleFlag}>Wordle Argentino</Text>
+        <View style={styles.flagRow}> 
+          <View style={styles.flagBarWrapper}>
+            <View style={styles.flagBarCeleste} />
+            <View style={styles.flagBarBlanca} />
+          </View>
+          <View style={styles.flagSunWrapper}>
+            <Ionicons name="sunny" size={28} color="#ffd500" />
+          </View>
+          <View style={styles.flagBarWrapper}>
+            <View style={styles.flagBarBlanca} />
+            <View style={styles.flagBarCeleste} />
           </View>
         </View>
       </View>
@@ -198,6 +224,27 @@ const GameScreen: React.FC = () => {
       <View style={styles.keyboardContainer}>
         <Keyboard letterStates={letterStates} onKeyPress={handleKeyPress} />
       </View>
+      
+      {/* Modal de estadísticas */}
+      <Modal
+        visible={showStats}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowStats(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <TouchableOpacity 
+              style={styles.modalClose} 
+              onPress={() => setShowStats(false)}
+              accessibilityLabel="Cerrar estadísticas"
+            >
+              <Ionicons name="close" size={24} color="#003366" />
+            </TouchableOpacity>
+            <StatsDisplay />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -208,26 +255,51 @@ const styles = StyleSheet.create({
     backgroundColor: '#dedede',
     alignItems: 'center',
     justifyContent: 'flex-start',
-    paddingTop: 24,
   },
   header: {
     width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-start',
-    marginBottom: 8,
-    paddingHorizontal: 16,
-    marginTop: 24,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    paddingTop: 60,
+    backgroundColor: '#f8f9fa',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
   },
-  homeIconCentered: {
-    alignSelf: 'center',
-    marginVertical: 8,
+  signOutButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f0f0f0',
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  headerSpacer: {
+    flex: 1,
+  },
+  statsButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f0f0f0',
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  gameTitle: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+    marginTop: 16,
   },
   titleFlagContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
-    width: '100%',
   },
   titleFlag: {
     fontSize: 28,
@@ -340,6 +412,49 @@ const styles = StyleSheet.create({
     right: 12,
     zIndex: 10,
     padding: 4,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  spacer: {
+    width: 40, // Same width as stats button to center the title
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 40,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    width: '100%',
+    maxWidth: 380,
+    maxHeight: '90%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
+    position: 'relative',
+  },
+  modalClose: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    zIndex: 10,
+    padding: 10,
+    backgroundColor: 'rgba(0, 51, 102, 0.1)',
+    borderRadius: 22,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 

@@ -1,17 +1,12 @@
+import { HapticTab } from '@/components/HapticTab';
+import TabBarBackground from '@/components/ui/TabBarBackground';
 import { useAuth } from '@clerk/clerk-expo';
+import { Ionicons } from '@expo/vector-icons';
 import { Redirect, Tabs } from 'expo-router';
 import React from 'react';
 import { Platform } from 'react-native';
 
-import { HapticTab } from '@/components/HapticTab';
-import { IconSymbol } from '@/components/ui/IconSymbol';
-import TabBarBackground from '@/components/ui/TabBarBackground';
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
-import SignOutButton from '../../components/SignOutButton';
-
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
   const { isSignedIn } = useAuth();
 
   // Redirect to sign-in if not authenticated
@@ -22,24 +17,62 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        headerShown: true, // Show header to place the sign out button
+        tabBarActiveTintColor: '#003366',
+        tabBarInactiveTintColor: '#999',
+        headerShown: false,
         tabBarButton: HapticTab,
         tabBarBackground: TabBarBackground,
+
+
         tabBarStyle: Platform.select({
           ios: {
-            // Use a transparent background on iOS to show the blur effect
-            position: 'absolute',
+            backgroundColor: '#ffffff',
+            borderTopColor: '#e0e0e0',
+            borderTopWidth: 1,
+            height: 90,
+            paddingBottom: 30,
           },
-          default: {},
+          default: {
+            backgroundColor: '#ffffff',
+            borderTopColor: '#e0e0e0',
+            borderTopWidth: 0,
+            height: 60,
+            paddingBottom: 10,
+          },
         }),
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '600',
+          marginTop: -2,
+        },
+        tabBarIconStyle: {
+          marginTop: 6,
+        },
       }}>
       <Tabs.Screen
         name="index"
         options={{
           title: 'Juego',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="gamecontroller.fill" color={color} />,
-          headerRight: () => <SignOutButton />,
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons 
+              size={focused ? 26 : 24} 
+              name="game-controller" 
+              color={color} 
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="leaderboard"
+        options={{
+          title: 'Ranking',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons 
+              size={focused ? 26 : 24} 
+              name="trophy" 
+              color={color} 
+            />
+          ),
         }}
       />
     </Tabs>
